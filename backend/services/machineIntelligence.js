@@ -53,7 +53,7 @@ async function predictWithML(temperature, vibration) {
         ],
         {
             cwd: backendPath,
-            timeout: 10000,
+            timeout: 30000,
             windowsHide: true
         }
     );

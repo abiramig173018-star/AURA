@@ -1,4 +1,4 @@
-
+﻿
 const db = require("../config/database");
 
 const {
@@ -137,7 +137,7 @@ exports.addReading = async (req, res) => {
                 machineId,
                 readingId,
                 alert.type,
-                thresholdAnalysis.status,
+                thresholdAnalysis.status.toUpperCase(),
                 alert.message
             );
             alertsSaved++;
@@ -173,9 +173,9 @@ exports.addReading = async (req, res) => {
     }
 };
 
-// 4. Get machine readings
+// 4. Get machine readings with optional limit
 exports.getMachineReadings = (req, res) => {
-    const machineId = req.params.id;
+    const machineId = Number(req.params.id);
 
     try {
         const machine = db.prepare(`
@@ -189,21 +189,29 @@ exports.getMachineReadings = (req, res) => {
             });
         }
 
+        const requestedLimit = Number(req.query.limit) || 100;
+        const limit = Math.min(Math.max(requestedLimit, 1), 500);
+
         const readings = db.prepare(`
-            SELECT * FROM machine_readings
+            SELECT *
+            FROM machine_readings
             WHERE machine_id = ?
             ORDER BY id DESC
-        `).all(machineId);
+            LIMIT ?
+        `).all(machineId, limit);
 
         res.json({
             success: true,
             machine: machine.machine_name,
+            machineId,
             count: readings.length,
+            limit,
             readings
         });
 
     } catch (error) {
         console.error("Get readings error:", error);
+
         res.status(500).json({
             success: false,
             message: "Failed to fetch machine readings."

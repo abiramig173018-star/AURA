@@ -18,6 +18,7 @@ app.use("/api/attendance", require("./routes/attendanceRoutes"));
 app.use("/api/machines", require("./routes/machineRoutes"));
 app.use("/api/production", require("./routes/productionRoutes"));
 app.use("/api/safety", require("./routes/safetyRoutes"));
+app.use("/api/dashboard", require("./routes/dashboardRoutes"));
 // Home API
 app.get("/", (req, res) => {
     res.json({
