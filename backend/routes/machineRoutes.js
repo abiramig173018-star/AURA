@@ -18,5 +18,17 @@ router.get("/:id/overview", machineController.getMachineOverview);
 
 // Machine alerts
 router.get("/:id/alerts", machineController.getMachineAlerts);
+router.get("/:id/alerts/filter", machineController.getAlertsByStatus);
+
+// Acknowledge and resolve alerts
+router.patch(
+    "/:id/alerts/:alertId/acknowledge",
+    machineController.acknowledgeAlert
+);
+
+router.patch(
+    "/:id/alerts/:alertId/resolve",
+    machineController.resolveAlert
+);
 
 module.exports = router;

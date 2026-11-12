@@ -7,11 +7,11 @@ exports.getDashboardOverview = (req, res) => {
         const employees = db.prepare(`
             SELECT
                 COUNT(*) AS total,
-                SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active
+                COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) AS active
             FROM employees
         `).get();
 
-        // Live attendance: latest event for each employee
+        // Live attendance
         const attendance = db.prepare(`
             SELECT COUNT(*) AS presentNow
             FROM (
@@ -31,7 +31,7 @@ exports.getDashboardOverview = (req, res) => {
         const machines = db.prepare(`
             SELECT
                 COUNT(*) AS total,
-                SUM(CASE WHEN status = 'operational' THEN 1 ELSE 0 END) AS operational
+                COALESCE(SUM(CASE WHEN status = 'operational' THEN 1 ELSE 0 END), 0) AS operational
             FROM machines
         `).get();
 
@@ -48,13 +48,17 @@ exports.getDashboardOverview = (req, res) => {
         const safety = db.prepare(`
             SELECT
                 COUNT(*) AS total,
-                SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) AS open
+                COALESCE(SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0) AS open
             FROM safety_incidents
         `).get();
 
-        // Total stored machine alerts
+        // Machine alert lifecycle statistics
         const alerts = db.prepare(`
-            SELECT COUNT(*) AS active
+            SELECT
+                COUNT(*) AS total,
+                COALESCE(SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END), 0) AS open,
+                COALESCE(SUM(CASE WHEN status = 'ACKNOWLEDGED' THEN 1 ELSE 0 END), 0) AS acknowledged,
+                COALESCE(SUM(CASE WHEN status = 'RESOLVED' THEN 1 ELSE 0 END), 0) AS resolved
             FROM machine_alerts
         `).get();
 
@@ -66,6 +70,9 @@ exports.getDashboardOverview = (req, res) => {
                 alert_type,
                 severity,
                 message,
+                status,
+                acknowledged_at,
+                resolved_at,
                 created_at
             FROM machine_alerts
             ORDER BY created_at DESC, id DESC
@@ -87,7 +94,7 @@ exports.getDashboardOverview = (req, res) => {
         });
 
     } catch (error) {
-        console.error("Dashboard overview error:", error.message);
+        console.error("Dashboard overview error:", error);
 
         res.status(500).json({
             success: false,

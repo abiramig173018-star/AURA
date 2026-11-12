@@ -407,3 +407,148 @@ exports.getMachineOverview = async (req, res) => {
         });
     }
 };
+
+// Get alerts by status
+exports.getAlertsByStatus = (req, res) => {
+    try {
+        const machineId = Number(req.params.id);
+        const status = String(req.query.status || "OPEN").toUpperCase();
+
+        if (!Number.isInteger(machineId) || machineId <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid machine ID."
+            });
+        }
+
+        if (!["OPEN", "ACKNOWLEDGED", "RESOLVED"].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid alert status."
+            });
+        }
+
+        const machine = db.prepare(
+            "SELECT id FROM machines WHERE id = ?"
+        ).get(machineId);
+
+        if (!machine) {
+            return res.status(404).json({
+                success: false,
+                message: "Machine not found."
+            });
+        }
+
+        const alerts = db.prepare(`
+            SELECT * FROM machine_alerts
+            WHERE machine_id = ? AND status = ?
+            ORDER BY created_at DESC
+        `).all(machineId, status);
+
+        res.json({
+            success: true,
+            count: alerts.length,
+            status,
+            alerts
+        });
+
+    } catch (error) {
+        console.error("Get alerts by status error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch alerts."
+        });
+    }
+};
+
+// Acknowledge an alert
+exports.acknowledgeAlert = (req, res) => {
+    try {
+        const machineId = Number(req.params.id);
+        const alertId = Number(req.params.alertId);
+
+        const alert = db.prepare(`
+            SELECT * FROM machine_alerts
+            WHERE id = ? AND machine_id = ?
+        `).get(alertId, machineId);
+
+        if (!alert) {
+            return res.status(404).json({
+                success: false,
+                message: "Alert not found."
+            });
+        }
+
+        if (alert.status !== "OPEN") {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot acknowledge an alert with status ${alert.status}.`
+            });
+        }
+
+        db.prepare(`
+            UPDATE machine_alerts
+            SET status = 'ACKNOWLEDGED',
+                acknowledged_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND machine_id = ? AND status = 'OPEN'
+        `).run(alertId, machineId);
+
+        res.json({
+            success: true,
+            message: "Alert acknowledged successfully."
+        });
+
+    } catch (error) {
+        console.error("Acknowledge alert error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to acknowledge alert."
+        });
+    }
+};
+
+// Resolve an alert
+exports.resolveAlert = (req, res) => {
+    try {
+        const machineId = Number(req.params.id);
+        const alertId = Number(req.params.alertId);
+
+        const alert = db.prepare(`
+            SELECT * FROM machine_alerts
+            WHERE id = ? AND machine_id = ?
+        `).get(alertId, machineId);
+
+        if (!alert) {
+            return res.status(404).json({
+                success: false,
+                message: "Alert not found."
+            });
+        }
+
+        if (alert.status === "RESOLVED") {
+            return res.status(400).json({
+                success: false,
+                message: "Alert is already resolved."
+            });
+        }
+
+        db.prepare(`
+            UPDATE machine_alerts
+            SET status = 'RESOLVED',
+                resolved_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND machine_id = ?
+        `).run(alertId, machineId);
+
+        res.json({
+            success: true,
+            message: "Alert resolved successfully."
+        });
+
+    } catch (error) {
+        console.error("Resolve alert error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to resolve alert."
+        });
+    }
+};
